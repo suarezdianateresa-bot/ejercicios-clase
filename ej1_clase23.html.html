@@ -1,0 +1,68 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ej1 — V/F</title>
+<style>
+
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:Calibri,'Segoe UI',sans-serif; background:#f4f8f8; color:#2C2C2C; padding:24px 16px; }
+.header { border-radius:10px; padding:16px 20px; margin-bottom:24px; }
+.header h1 { font-size:1.05rem; font-weight:700; margin-bottom:4px; }
+.header p  { font-size:.82rem; opacity:.9; }
+.btn { padding:10px 22px; border:none; border-radius:8px; font-size:.9rem; font-weight:700; cursor:pointer; margin-right:8px; }
+.btn-check { background:#4D969B; color:white; }
+.btn-reset { background:#9B72CF; color:white; }
+.result { margin-top:18px; font-size:.95rem; font-weight:600; display:none; }
+.result.show { display:block; }
+
+.header { background:#4D969B; color:white; }
+.item { background:white; border-radius:10px; padding:14px 16px; margin-bottom:12px; border:1.5px solid #D6ECED; }
+.item-text { font-size:.95rem; margin-bottom:10px; }
+.options { display:flex; gap:10px; }
+.opt { padding:7px 20px; border-radius:18px; border:2px solid #A8CBCE; background:#f4f8f8; font-size:.9rem; font-weight:700; cursor:pointer; color:#2C2C2C; transition:all .15s; }
+.opt:hover { border-color:#4D969B; background:#D6ECED; }
+.opt.selected-V { background:#4D969B; color:white; border-color:#4D969B; }
+.opt.selected-F { background:#9B72CF; color:white; border-color:#9B72CF; }
+.opt.correct { background:#28a745!important; color:white!important; border-color:#28a745!important; }
+.opt.wrong   { background:#CC2229!important; color:white!important; border-color:#CC2229!important; }
+</style></head><body>
+<div class="header"><h1>✅ Ejercicio 1 — Verdadero o Falso</h1><p>Lee las frases y marca V (verdadero) o F (falso).</p></div>
+<div id="items"></div>
+<div style="margin-top:8px">
+  <button class="btn btn-check" onclick="check()">✓ Comprobar</button>
+  <button class="btn btn-reset" onclick="reset()">↺ Reiniciar</button>
+</div>
+<div class="result" id="result"></div>
+<script>
+const data = [
+  { text:"1. La cuñada de Lidia se retrasa.", answer:"V" },
+  { text:"2. Rodrigo es el cuñado de Lidia.", answer:"F" },
+  { text:"3. Rodrigo piensa que la cuñada de Lidia puede haber tenido problemas con el tráfico.", answer:"V" },
+  { text:"4. La situación económica del ayuntamiento es muy buena.", answer:"F" },
+];
+let sel = {};
+function render() {
+  document.getElementById('items').innerHTML = data.map((item,i) => `
+    <div class="item">
+      <div class="item-text">${item.text}</div>
+      <div class="options">
+        <button class="opt ${sel[i]==='V'?'selected-V':''}" onclick="pick(${i},'V')">V — Verdadero</button>
+        <button class="opt ${sel[i]==='F'?'selected-F':''}" onclick="pick(${i},'F')">F — Falso</button>
+      </div>
+    </div>`).join('');
+}
+function pick(i,v) { sel[i]=v; clearFb(); render(); }
+function clearFb() { document.getElementById('result').className='result'; }
+function check() {
+  let ok=0;
+  data.forEach((item,i) => {
+    document.querySelectorAll(`.item:nth-child(${i+1}) .opt`).forEach(btn => {
+      btn.classList.remove('correct','wrong');
+      const v = btn.textContent.startsWith('V') ? 'V' : 'F';
+      if(sel[i]===v) { if(v===item.answer){btn.classList.add('correct');ok++;} else btn.classList.add('wrong'); }
+    });
+  });
+  const r = document.getElementById('result');
+  r.textContent = ok===data.length ? `🎉 ¡Perfecto! ${ok}/${data.length}` : `${ok}/${data.length} correctas.`;
+  r.className='result show'; r.style.color='#4D969B';
+}
+function reset() { sel={}; clearFb(); render(); }
+render();
+</script></body></html>
