@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero Diagnóstico — Primera Clase</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f4; color: #1a1a1a; min-height: 100vh; }
+
+/* TOP BAR */
+.top-bar { background: #2D6B6F; color: white; padding: 11px 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.top-bar h1 { font-size: 1rem; font-weight: 700; }
+.top-bar .sub { font-size: .75rem; opacity: .75; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+.ba0  { background:#D6ECED; color:#2D6B6F; }
+.ba1  { background:#EEEDFE; color:#3C3489; }
+.ba1b { background:#FAEEDA; color:#633806; }
+.bwild{ background:#FAECE7; color:#712B13; }
+
+/* LAYOUT */
+.main { display: flex; gap: 14px; padding: 14px; max-width: 1440px; margin: 0 auto; }
+
+/* LEFT PANEL */
+.left { width: 212px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; }
+.card { background: white; border-radius: 12px; padding: 13px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.card-title { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 9px; }
+
+/* DICE */
+.dice-wrap { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+#dice { width: 66px; height: 66px; background: white; border: 2.5px solid #4D969B; border-radius: 14px; display: grid; grid-template-columns: repeat(3,1fr); grid-template-rows: repeat(3,1fr); padding: 9px; gap: 4px; cursor: pointer; user-select: none; transition: transform .1s; }
+#dice:hover { transform: scale(1.06); border-color: #2D6B6F; }
+#dice:active { transform: scale(.95); }
+#dice.rolling { animation: shake .4s ease; }
+@keyframes shake { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-15deg) scale(.9)} 60%{transform:rotate(15deg) scale(1.06)} 80%{transform:rotate(-6deg)} }
+.dot { width: 11px; height: 11px; border-radius: 50%; background: #4D969B; margin: auto; opacity: 0; transition: opacity .1s; }
+.dot.on { opacity: 1; }
+#dice-num { font-size: 28px; font-weight: 700; color: #4D969B; min-height: 36px; line-height: 36px; }
+#roll-btn { background: #4D969B; color: white; border: none; border-radius: 8px; padding: 9px 0; width: 100%; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .15s; }
+#roll-btn:hover { background: #2D6B6F; }
+
+/* TOKEN TRAY */
+.tray { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.tray-token {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: white; border: 2px solid #ddd;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; cursor: grab; user-select: none;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+  touch-action: none;
+}
+.tray-token:hover { transform: scale(1.12); box-shadow: 0 3px 10px rgba(0,0,0,.15); border-color: #4D969B; }
+.tray-token:active { cursor: grabbing; transform: scale(1.05); }
+.tray-hint { font-size: 10px; color: #999; text-align: center; margin-top: 4px; line-height: 1.4; }
+
+/* LEGEND */
+.leg { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #555; margin-bottom: 6px; }
+.leg-dot { width: 11px; height: 11px; border-radius: 4px; flex-shrink: 0; }
+
+/* NOTES */
+#notes { width: 100%; min-height: 90px; font-size: 12px; border: 1px solid #ddd; border-radius: 8px; padding: 8px; resize: vertical; font-family: inherit; color: #333; line-height: 1.5; }
+#notes:focus { outline: none; border-color: #4D969B; }
+
+/* SCORES */
+.srow { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.slabel { font-size: 11px; color: #555; width: 72px; flex-shrink: 0; }
+.sbar-bg { flex: 1; height: 7px; background: #eee; border-radius: 4px; overflow: hidden; }
+.sbar { height: 100%; border-radius: 4px; transition: width .4s; }
+.sct { font-size: 12px; font-weight: 700; width: 18px; text-align: right; color: #444; }
+#verdict { font-size: 11px; line-height: 1.6; padding: 8px 10px 8px 13px; border-radius: 8px; background: #f8f8f8; border-left: 3px solid #ccc; display: none; margin-top: 8px; }
+#verdict.show { display: block; }
+
+/* BOARD */
+.board-wrap { flex: 1; }
+.board { display: grid; grid-template-columns: repeat(8,1fr); gap: 6px; }
+
+.cell {
+  border-radius: 10px;
+  border: 1.5px solid #e0e0e0;
+  padding: 7px 6px 22px;   /* bottom padding = room for tokens */
+  min-height: 82px;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  text-align: center; position: relative; background: white;
+  transition: transform .15s, box-shadow .15s, border-color .2s, background .2s;
+}
+.cell.clickable { cursor: pointer; }
+.cell.clickable:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+.cell.drop-target { background: #e8f7f4 !important; border-color: #5DCAA5 !important; border-width: 2px; transform: scale(1.03); }
+.cell.used { opacity: .45; }
+.cell-num { font-size: 9px; font-weight: 700; color: #bbb; position: absolute; top: 4px; left: 6px; }
+.cell-badge { font-size: 9px; font-weight: 700; padding: 1px 5px; border-radius: 4px; position: absolute; top: 4px; right: 5px; }
+.cell-icon { font-size: 18px; margin: 2px 0 3px; }
+.cell-q { font-size: 10px; font-weight: 600; line-height: 1.3; color: #222; }
+
+/* token dock at bottom of cell */
+.cell-dock {
+  position: absolute; bottom: 4px; left: 0; right: 0;
+  display: flex; justify-content: center; gap: 2px; flex-wrap: wrap; padding: 0 4px;
+}
+.board-token {
+  font-size: 18px; cursor: grab; user-select: none;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,.35));
+  touch-action: none; line-height: 1;
+  transition: transform .1s;
+}
+.board-token:hover { transform: scale(1.2); }
+.board-token:active { cursor: grabbing; }
+.board-token.dragging-out { opacity: .3; }
+
+/* bounce in */
+@keyframes bounce { 0%{transform:translateY(-14px) scale(1.2)} 55%{transform:translateY(3px) scale(.95)} 75%{transform:translateY(-4px)} 100%{transform:translateY(0) scale(1)} }
+.board-token.bounce { animation: bounce .4s ease; }
+
+/* level colours */
+.lv-a0   { background:#EAF7F5; border-color:#5DCAA5 !important; }
+.lv-a0   .cell-badge { background:#5DCAA5; color:#04342C; }
+.lv-a1   { background:#EEEDFE; border-color:#AFA9EC !important; }
+.lv-a1   .cell-badge { background:#AFA9EC; color:#26215C; }
+.lv-a1b  { background:#FEF4E4; border-color:#EF9F27 !important; }
+.lv-a1b  .cell-badge { background:#EF9F27; color:#412402; }
+.lv-wild { background:#FAECE7; border-color:#D85A30 !important; }
+.lv-wild .cell-badge { background:#D85A30; color:white; }
+.lv-special { background:#F5F5F5; border-color:#ccc !important; border-style:dashed !important; }
+.lv-special .cell-q { color:#888; font-weight:500; }
+
+/* MODAL */
+#overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:200; align-items:center; justify-content:center; }
+#overlay.open { display:flex; }
+#modal { background:white; border-radius:16px; max-width:480px; width:92%; padding:26px; position:relative; box-shadow:0 8px 40px rgba(0,0,0,.2); }
+#m-badge { display:inline-block; font-size:11px; font-weight:700; padding:4px 12px; border-radius:20px; margin-bottom:12px; }
+#m-q { font-size:20px; font-weight:700; line-height:1.35; margin-bottom:8px; color:#1a1a1a; }
+#m-hint { font-size:13px; color:#666; margin-bottom:12px; font-style:italic; }
+#m-diag { font-size:12.5px; background:#f6f6f6; border-radius:8px; padding:11px 13px; margin-bottom:16px; color:#555; line-height:1.6; border-left:3px solid #4D969B; }
+#m-diag strong { color:#2D6B6F; }
+.mbtns { display:flex; gap:8px; flex-wrap:wrap; }
+.mbtn { font-size:13px; font-weight:600; padding:9px 16px; border-radius:8px; border:none; cursor:pointer; transition:opacity .15s,transform .1s; }
+.mbtn:hover { opacity:.85; transform:scale(1.02); }
+.mbtn-good { background:#5DCAA5; color:#04342C; }
+.mbtn-ok   { background:#EF9F27; color:#412402; }
+.mbtn-bad  { background:#D85A30; color:white; }
+.mbtn-skip { background:#f0f0f0; color:#555; }
+#m-close { position:absolute; top:12px; right:14px; font-size:18px; cursor:pointer; color:#aaa; background:none; border:none; padding:4px; }
+#m-close:hover { color:#555; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div>
+    <h1>🎯 Tablero Diagnóstico — Primera Clase</h1>
+    <div class="sub">Conversación A0–A1 · Adulto · USA · Novia colombiana</div>
+  </div>
+  <div class="badges">
+    <span class="badge ba0">A0 principiante</span>
+    <span class="badge ba1">A1 básico</span>
+    <span class="badge ba1b">A1+ diagnóstico</span>
+    <span class="badge bwild">★ Comodín</span>
+  </div>
+</div>
+
+<div class="main">
+  <div class="left">
+
+    <div class="card">
+      <div class="card-title">Tira el dado</div>
+      <div class="dice-wrap">
+        <div id="dice" onclick="rollDice()">
+          <div class="dot" id="d0"></div><div class="dot" id="d1"></div><div class="dot" id="d2"></div>
+          <div class="dot" id="d3"></div><div class="dot" id="d4"></div><div class="dot" id="d5"></div>
+          <div class="dot" id="d6"></div><div class="dot" id="d7"></div><div class="dot" id="d8"></div>
+        </div>
+        <div id="dice-num">—</div>
+        <button id="roll-btn" onclick="rollDice()">🎲 Tirar el dado</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Fichas — arrastra al tablero</div>
+      <div class="tray" id="tray"></div>
+      <div class="tray-hint">Arrastra una ficha a cualquier casilla del tablero</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Niveles</div>
+      <div class="leg"><div class="leg-dot" style="background:#5DCAA5"></div>A0 — principiante puro</div>
+      <div class="leg"><div class="leg-dot" style="background:#AFA9EC"></div>A1 — básico</div>
+      <div class="leg"><div class="leg-dot" style="background:#EF9F27"></div>A1+ — diagnóstico</div>
+      <div class="leg"><div class="leg-dot" style="background:#D85A30"></div>★ Comodín personal</div>
+      <div class="leg"><div class="leg-dot" style="background:#ccc"></div>Casilla especial</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Notas de clase</div>
+      <textarea id="notes" placeholder="Anota lo que observas...
+— ¿Usa frases completas?
+— ¿Conjuga verbos?
+— ¿Entiende sin repetición?
+— ¿Elabora o responde solo lo mínimo?"></textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Resumen diagnóstico</div>
+      <div class="srow"><span class="slabel">✅ Fluido</span><div class="sbar-bg"><div class="sbar" id="bar-good" style="width:0%;background:#5DCAA5"></div></div><span class="sct" id="ct-good">0</span></div>
+      <div class="srow"><span class="slabel">🟡 Parcial</span><div class="sbar-bg"><div class="sbar" id="bar-ok" style="width:0%;background:#EF9F27"></div></div><span class="sct" id="ct-ok">0</span></div>
+      <div class="srow"><span class="slabel">🔴 Con ayuda</span><div class="sbar-bg"><div class="sbar" id="bar-bad" style="width:0%;background:#D85A30"></div></div><span class="sct" id="ct-bad">0</span></div>
+      <div id="verdict"></div>
+    </div>
+
+  </div><!-- /left -->
+
+  <div class="board-wrap">
+    <div class="board" id="board"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="overlay" onclick="bgClick(event)">
+  <div id="modal">
+    <button id="m-close" onclick="closeModal()">✕</button>
+    <span id="m-badge"></span>
+    <div id="m-q"></div>
+    <div id="m-hint"></div>
+    <div id="m-diag"></div>
+    <div class="mbtns">
+      <button class="mbtn mbtn-good" onclick="markResult('good')">✅ Fluido</button>
+      <button class="mbtn mbtn-ok"   onclick="markResult('ok')">🟡 Parcial</button>
+      <button class="mbtn mbtn-bad"  onclick="markResult('bad')">🔴 Con ayuda</button>
+      <button class="mbtn mbtn-skip" onclick="closeModal()">Omitir</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── DATA ─────────────────────────────────────────────── */
+const TOKENS = [
+  {e:"🦊",n:"Zorro"    },{e:"🐉",n:"Dragón"   },{e:"🦄",n:"Unicornio"},
+  {e:"🐢",n:"Tortuga"  },{e:"🐸",n:"Rana"     },{e:"🦁",n:"León"     },
+];
+
+const CELLS = [
+  {n:1,  icon:"👋", q:"¿Cómo te llamas?",              hint:"Nombre completo, apodo", lv:"a0", badge:"A0",
+   diag:"¿Dice solo el nombre o usa 'Me llamo...'? ¿Conoce el verbo llamarse? Nivel mínimo esperado."},
+  {n:2,  icon:"🪪", q:"¿Cuál es tu apellido?",          hint:"¿Cómo se escribe?", lv:"a0", badge:"A0",
+   diag:"¿Sabe la diferencia nombre/apellido? ¿Lo pronuncia con acento correcto?"},
+  {n:3,  icon:"🌍", q:"¿De dónde eres?",                 hint:"Ciudad y estado", lv:"a0", badge:"A0",
+   diag:"¿Usa 'Soy de...' o solo dice el lugar? ¿Puede elaborar con ciudad + estado?"},
+  {n:4,  icon:"💼", q:"¿A qué te dedicas?",              hint:"Trabajo o estudios — ¿dónde?", lv:"a0", badge:"A0",
+   diag:"¿Dice 'Soy...' o 'Trabajo en...'? ¿Puede decir el sector o la empresa?"},
+  {n:5,  icon:"🇨🇴", q:"¿De dónde es tu novia?",       hint:"Colombia — ¿de qué ciudad?", lv:"a0", badge:"A0",
+   diag:"CLAVE: ¿tiene vocabulario sobre Colombia? Revela exposición informal real al español."},
+  {n:6,  icon:"🏠", q:"¿Dónde vives?",                   hint:"Ciudad, barrio, estado", lv:"a0", badge:"A0",
+   diag:"¿Usa 'Vivo en...'? ¿Puede describir su área? Vocabulario básico de lugar."},
+  {n:7,  icon:"🎂", q:"¿Cuántos años tienes?",           hint:"Números, fecha de nacimiento", lv:"a0", badge:"A0",
+   diag:"¿Maneja los números? ¿Dice 'Tengo X años' o solo el número suelto?"},
+  {n:8,  icon:"⬆️", q:"¡AVANZA 3 casillas!",             hint:"", lv:"special", badge:"", diag:""},
+  {n:9,  icon:"❤️", q:"¿Cuánto tiempo llevan juntos?",   hint:"Meses o años — ¿dónde se conocieron?", lv:"a1", badge:"A1",
+   diag:"¿Puede decir el tiempo con 'Llevamos X años'? ¿Añade detalles sobre cómo se conocieron?"},
+  {n:10, icon:"👨‍👩‍👧", q:"¿Tienes hermanos?",             hint:"Nombres, edades, dónde viven", lv:"a1", badge:"A1",
+   diag:"¿Usa 'Tengo un hermano / una hermana'? ¿Puede decir edades y lugares?"},
+  {n:11, icon:"🌮", q:"¿Qué comes normalmente?",         hint:"¿Qué desayuna? ¿Platos favoritos?", lv:"a1", badge:"A1",
+   diag:"¿Conoce nombres de alimentos en español? ¿Menciona comida colombiana?"},
+  {n:12, icon:"⬇️", q:"RETROCEDE 2 casillas",            hint:"", lv:"special", badge:"", diag:""},
+  {n:13, icon:"🎵", q:"¿Escuchas música en español?",    hint:"Artistas, géneros favoritos", lv:"a1", badge:"A1",
+   diag:"¿Conoce artistas latinos? Revela exposición auditiva informal — muy útil para calibrar."},
+  {n:14, icon:"🐾", q:"¿Tienes mascotas?",               hint:"Nombre, tipo, descripción", lv:"a1", badge:"A1",
+   diag:"¿Usa género correcto (el perro / la gata)? ¿Puede describir con adjetivos?"},
+  {n:15, icon:"🍳", q:"¿Te gusta cocinar?",              hint:"¿Sabe preparar platos colombianos?", lv:"a1", badge:"A1",
+   diag:"¿Usa 'Me gusta / No me gusta'? ¿Puede nombrar algún plato en español?"},
+  {n:16, icon:"💬", q:"¿Qué idiomas hablas?",            hint:"¿Algo de español antes de esta clase?", lv:"a1", badge:"A1",
+   diag:"CLAVE: ¿aprendió algo informal con la novia? ¿Estudió antes? Calibra el punto de partida real."},
+  {n:17, icon:"⭐", q:"CASILLA ESTRELLA — el dado decide tu próxima", hint:"", lv:"special", badge:"", diag:""},
+  {n:18, icon:"🍽️", q:"¿Eres buen cocinero?",           hint:"¿Aprendió recetas colombianas?", lv:"a1b", badge:"A1+",
+   diag:"Adjetivos con SER. ¿Acuerda género? Si dice 'Sí, soy bueno' con naturalidad → nivel real A1."},
+  {n:19, icon:"⬆️", q:"AVANZA hasta la siguiente flecha",hint:"", lv:"special", badge:"", diag:""},
+  {n:20, icon:"🌎", q:"¿Alguna vez visitaste Colombia?", hint:"¿Cuándo? ¿Qué hiciste allá?", lv:"a1b", badge:"A1+",
+   diag:"¿Usa el pretérito espontáneamente? Si dice 'fui / estuve / comí' de forma natural → nivel A1 real."},
+  {n:21, icon:"🌟", q:"¿Conoces a la familia de tu novia?", hint:"¿Cómo son? ¿Dónde viven?", lv:"a1b", badge:"A1+",
+   diag:"Pregunta de oro. ¿Puede describir la familia con adjetivos y nombres? ¿Elabora espontáneamente?"},
+  {n:22, icon:"🎮", q:"¿Cuáles son tus aficiones?",      hint:"3 cosas que hace en su tiempo libre", lv:"a1b", badge:"A1+",
+   diag:"¿Lista con 'Me gusta + infinitivo'? ¿Usa conectores: también, y, pero? Evalúa fluidez léxica."},
+  {n:23, icon:"↗️", q:"ELIGE TÚ la siguiente casilla",   hint:"Como profesora, elige tú", lv:"special", badge:"", diag:""},
+  {n:24, icon:"🎬", q:"¿Qué series ves en Netflix?",    hint:"¿Alguna en español? ¿Por qué?", lv:"a1b", badge:"A1+",
+   diag:"¿Ve contenido en español? Si dice que sí → señal de nivel real. ¿Puede describir de qué trata?"},
+  {n:25, icon:"📅", q:"¿Qué haces los domingos?",        hint:"Rutina del fin de semana", lv:"a1b", badge:"A1+",
+   diag:"¿Usa el presente habitual? 'Los domingos voy / como / descanso' → indica manejo de conjugación."},
+  {n:26, icon:"🇨🇴", q:"¿Qué palabras en español escuchaste más con tu novia?", hint:"Expresiones de casa, familia", lv:"wild", badge:"★",
+   diag:"COMODÍN DIAGNÓSTICO. Revela exposición informal real. Puede tener mucho input aunque diga ser principiante."},
+  {n:27, icon:"⚽", q:"¿Qué deportes te gustan?",        hint:"¿Juega fútbol con la familia?", lv:"a1b", badge:"A1+",
+   diag:"¿Distingue 'me gusta ver' vs 'me gusta practicar'? ¿Conoce deportes en español?"},
+  {n:28, icon:"🏘️", q:"¿Cómo es tu barrio?",            hint:"Tranquilo, animado, lejos del centro", lv:"a1b", badge:"A1+",
+   diag:"¿Puede usar adjetivos descriptivos? ¿Conoce vocabulario de ciudad?"},
+  {n:29, icon:"🌟", q:"¿Por qué aprendes español?",      hint:"La novia, la familia, el trabajo", lv:"wild", badge:"★",
+   diag:"COMODÍN MOTIVACIONAL. ¿Puede expresar razones con 'porque'? ¿Elabora más de una frase?"},
+  {n:30, icon:"🇨🇴", q:"¿Qué sabes de Colombia?",       hint:"Comida, ciudades, cultura", lv:"wild", badge:"★",
+   diag:"¿Tiene vocabulario sobre Colombia? Evalúa conocimiento cultural y nivel de inmersión real."},
+  {n:31, icon:"🌅", q:"¿Qué prefieres: mañanas o noches?", hint:"¿Por qué?", lv:"a1b", badge:"A1+",
+   diag:"¿Usa 'prefiero' y justifica con 'porque'? Evalúa estructura de opinión básica."},
+  {n:32, icon:"📺", q:"¿Qué películas te gustan?",      hint:"Géneros, ¿en qué idioma?", lv:"a1b", badge:"A1+",
+   diag:"¿Conoce géneros en español (acción, comedia, terror)? ¿Dice 'me encanta / prefiero'?"},
+  {n:33, icon:"🎯", q:"¿Qué fue lo mejor que te pasó esta semana?", hint:"Mini-historia", lv:"wild", badge:"★",
+   diag:"¿Puede contar algo en pasado espontáneamente? Si fluye con pretérito → nivel A1 real, no A0."},
+  {n:34, icon:"🏖️", q:"¿A dónde te gustaría viajar?",  hint:"¿Colombia? ¿Latinoamérica?", lv:"a1b", badge:"A1+",
+   diag:"¿Usa 'me gustaría + infinitivo'? ¿Puede dar razones? Evalúa deseos y elaboración."},
+  {n:35, icon:"🎬", q:"¿Cuál es la última película que viste?", hint:"¿De qué trata? ¿Te gustó?", lv:"wild", badge:"★",
+   diag:"CLAVE: ¿Dice 'vi...' espontáneamente? Si usa pretérito sin pensarlo → nivel A1 confirmado."},
+  {n:36, icon:"📱", q:"¿Usas redes sociales en español?", hint:"¿Sigue a colombianos? ¿Qué ve?", lv:"a1b", badge:"A1+",
+   diag:"Revela exposición pasiva real. Sigue cuentas en español → tiene input informal valioso."},
+  {n:37, icon:"🛑", q:"PAUSA — Tu profesora elige la pregunta", hint:"Usa lo que hayas observado", lv:"special", badge:"", diag:""},
+  {n:38, icon:"✈️", q:"¿Qué países visitaste?",           hint:"¿Colombia alguna vez?", lv:"wild", badge:"★",
+   diag:"¿Usa 'fui a...' de forma natural? Si el pretérito fluye → no es principiante puro. Nivel A1 real."},
+  {n:39, icon:"❓", q:"Tú eliges la pregunta final",      hint:"Según lo que observaste en la clase", lv:"special", badge:"", diag:""},
+  {n:40, icon:"🏆", q:"¡Llegaste al final! ¿Qué aprendiste hoy?", hint:"Reflexión libre", lv:"special", badge:"", diag:""},
+];
+
+const DICE_PAT = {
+  1:[[4]], 2:[[0],[8]], 3:[[0],[4],[8]],
+  4:[[0],[2],[6],[8]], 5:[[0],[2],[4],[6],[8]],
+  6:[[0],[2],[3],[5],[6],[8]]
+};
+
+let scores = {good:0,ok:0,bad:0};
+let currentCell = null;
+
+/* ── BUILD BOARD ───────────────────────────────────────── */
+function buildBoard() {
+  const b = document.getElementById('board');
+  CELLS.forEach((c,i) => {
+    const div = document.createElement('div');
+    div.className = 'cell lv-'+c.lv + (c.lv!=='special'?' clickable':'');
+    div.id = 'cell-'+i;
+    div.innerHTML =
+      `<span class="cell-num">${c.n}</span>
+       ${c.badge?`<span class="cell-badge">${c.badge}</span>`:''}
+       <span class="cell-icon">${c.icon}</span>
+       <span class="cell-q">${c.q}</span>
+       <div class="cell-dock" id="dock-${i}"></div>`;
+    if(c.lv!=='special') div.addEventListener('click', ()=>openModal(i));
+    // Drop target events
+    div.addEventListener('dragover',  e=>{ e.preventDefault(); div.classList.add('drop-target'); });
+    div.addEventListener('dragleave', ()=>div.classList.remove('drop-target'));
+    div.addEventListener('drop',      e=>{ e.preventDefault(); div.classList.remove('drop-target'); handleDrop(e,i); });
+    b.appendChild(div);
+  });
+}
+
+/* ── BUILD TRAY ────────────────────────────────────────── */
+function buildTray() {
+  const tray = document.getElementById('tray');
+  TOKENS.forEach((t,i) => {
+    const el = document.createElement('div');
+    el.className = 'tray-token';
+    el.id = 'tray-'+i;
+    el.textContent = t.e;
+    el.title = t.n;
+    el.draggable = true;
+    el.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('tokenIdx', i);
+      e.dataTransfer.setData('fromTray', 'yes');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    addTouchDrag(el, i, null);
+    tray.appendChild(el);
+  });
+}
+
+/* ── DRAG FROM BOARD TOKEN ─────────────────────────────── */
+function makeBoardToken(tokenIdx, cellIdx) {
+  const el = document.createElement('span');
+  el.className = 'board-token bounce';
+  el.id = 'btoken-'+tokenIdx;
+  el.textContent = TOKENS[tokenIdx].e;
+  el.title = TOKENS[tokenIdx].n;
+  el.draggable = true;
+  el.addEventListener('dragstart', e => {
+    e.stopPropagation();
+    e.dataTransfer.setData('tokenIdx', tokenIdx);
+    e.dataTransfer.setData('fromCell', cellIdx);
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(()=>el.classList.add('dragging-out'),0);
+  });
+  el.addEventListener('dragend', ()=>el.classList.remove('dragging-out'));
+  // prevent cell click when dragging token
+  el.addEventListener('click', e=>e.stopPropagation());
+  addTouchDrag(el, tokenIdx, cellIdx);
+  return el;
+}
+
+function handleDrop(e, targetCellIdx) {
+  const tokenIdx  = parseInt(e.dataTransfer.getData('tokenIdx'));
+  const fromTray  = e.dataTransfer.getData('fromTray');
+  const fromCell  = e.dataTransfer.getData('fromCell');
+
+  // Remove from tray or old cell
+  if(fromTray === 'yes') {
+    const trayEl = document.getElementById('tray-'+tokenIdx);
+    if(trayEl) trayEl.style.opacity = '.25';
+  } else if(fromCell !== '') {
+    const dock = document.getElementById('dock-'+fromCell);
+    const old  = document.getElementById('btoken-'+tokenIdx);
+    if(old) dock.removeChild(old);
+    // restore tray if now empty
+  }
+
+  // Remove old instance on board if exists
+  const existingOnBoard = document.getElementById('btoken-'+tokenIdx);
+  if(existingOnBoard) existingOnBoard.remove();
+
+  // Add to new cell
+  const dock = document.getElementById('dock-'+targetCellIdx);
+  const token = makeBoardToken(tokenIdx, targetCellIdx);
+  dock.appendChild(token);
+
+  // Auto-open modal
+  if(CELLS[targetCellIdx].lv !== 'special') {
+    setTimeout(()=>openModal(targetCellIdx), 350);
+  }
+}
+
+/* ── TOUCH DRAG (mobile + Zoom screen share) ───────────── */
+function addTouchDrag(el, tokenIdx, fromCellIdx) {
+  let clone = null;
+  el.addEventListener('touchstart', e => {
+    e.preventDefault();
+    clone = el.cloneNode(true);
+    clone.style.cssText = 'position:fixed;pointer-events:none;opacity:.85;z-index:9999;font-size:28px;';
+    document.body.appendChild(clone);
+    el.style.opacity = '.3';
+    function mv(e) {
+      e.preventDefault();
+      const t = e.touches[0];
+      clone.style.left = (t.clientX - 16) + 'px';
+      clone.style.top  = (t.clientY - 16) + 'px';
+      document.querySelectorAll('.cell').forEach(c=>c.classList.remove('drop-target'));
+      const under = document.elementFromPoint(t.clientX, t.clientY);
+      const cell  = under && under.closest('.cell');
+      if(cell) cell.classList.add('drop-target');
+    }
+    function up(e) {
+      document.removeEventListener('touchmove', mv);
+      document.removeEventListener('touchend', up);
+      clone.remove(); el.style.opacity = '';
+      document.querySelectorAll('.cell').forEach(c=>c.classList.remove('drop-target'));
+      const t = e.changedTouches[0];
+      const under = document.elementFromPoint(t.clientX, t.clientY);
+      const cell  = under && under.closest('.cell');
+      if(!cell) return;
+      const idx = parseInt(cell.id.replace('cell-',''));
+      if(isNaN(idx)) return;
+      // Remove from original position
+      if(fromCellIdx !== null) {
+        const old = document.getElementById('btoken-'+tokenIdx);
+        if(old) old.remove();
+      } else {
+        const trayEl = document.getElementById('tray-'+tokenIdx);
+        if(trayEl) trayEl.style.opacity = '.25';
+      }
+      // Remove any existing board instance
+      const existing = document.getElementById('btoken-'+tokenIdx);
+      if(existing) existing.remove();
+      // Place on new cell
+      const dock  = document.getElementById('dock-'+idx);
+      const token = makeBoardToken(tokenIdx, idx);
+      dock.appendChild(token);
+      if(CELLS[idx].lv !== 'special') setTimeout(()=>openModal(idx), 350);
+    }
+    document.addEventListener('touchmove', mv, {passive:false});
+    document.addEventListener('touchend', up);
+  }, {passive:false});
+}
+
+/* ── DICE ──────────────────────────────────────────────── */
+function showFace(v) {
+  const pts = (DICE_PAT[v]||[]).flat();
+  for(let i=0;i<9;i++) document.getElementById('d'+i).classList.toggle('on', pts.includes(i));
+}
+function rollDice() {
+  const d = document.getElementById('dice');
+  d.classList.add('rolling');
+  setTimeout(()=>d.classList.remove('rolling'),420);
+  let t=0;
+  const iv = setInterval(()=>{
+    showFace(Math.ceil(Math.random()*6)); t++;
+    if(t>14){ clearInterval(iv); const v=Math.ceil(Math.random()*6); showFace(v); document.getElementById('dice-num').textContent=v; }
+  },65);
+}
+
+/* ── MODAL ─────────────────────────────────────────────── */
+function openModal(idx) {
+  const c = CELLS[idx];
+  if(!c||c.lv==='special') return;
+  currentCell = idx;
+  const cfg = {
+    a0:  {l:'A0 — Principiante', bg:'#EAF7F5', co:'#085041'},
+    a1:  {l:'A1 — Básico',       bg:'#EEEDFE', co:'#26215C'},
+    a1b: {l:'A1+ — Diagnóstico', bg:'#FEF4E4', co:'#633806'},
+    wild:{l:'★ Comodín personal',bg:'#FAECE7', co:'#712B13'},
+  }[c.lv]||{l:'',bg:'#eee',co:'#333'};
+  const badge = document.getElementById('m-badge');
+  badge.textContent = cfg.l; badge.style.background = cfg.bg; badge.style.color = cfg.co;
+  document.getElementById('m-q').textContent    = c.q;
+  document.getElementById('m-hint').textContent = c.hint ? '→ '+c.hint : '';
+  document.getElementById('m-diag').innerHTML   = c.diag ? '<strong>🔍 Observa:</strong> '+c.diag : '';
+  document.getElementById('overlay').classList.add('open');
+}
+function bgClick(e){ if(e.target===document.getElementById('overlay')) closeModal(); }
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); currentCell=null; }
+
+function markResult(r){
+  if(currentCell===null) return;
+  scores[r]++;
+  document.getElementById('cell-'+currentCell)?.classList.add('used');
+  const total = scores.good+scores.ok+scores.bad||1;
+  ['good','ok','bad'].forEach(k=>{
+    document.getElementById('bar-'+k).style.width = Math.round(scores[k]/total*100)+'%';
+    document.getElementById('ct-'+k).textContent  = scores[k];
+  });
+  closeModal(); updateVerdict();
+}
+
+function updateVerdict(){
+  const t = scores.good+scores.ok+scores.bad;
+  if(t<4) return;
+  const el=document.getElementById('verdict'); el.classList.add('show');
+  const g=scores.good/t;
+  if(g>=.7){  el.style.borderLeftColor='#5DCAA5'; el.innerHTML='✅ <strong>Nivel real: A1–A2.</strong><br>No es principiante. Empieza con A1 con estructura.'; }
+  else if(g>=.4){ el.style.borderLeftColor='#EF9F27'; el.innerHTML='🟡 <strong>Nivel: A1 bajo.</strong><br>Base informal. Necesita estructura.'; }
+  else{       el.style.borderLeftColor='#D85A30'; el.innerHTML='🔴 <strong>Nivel real: A0.</strong><br>Principiante. Empieza desde cero con calma.'; }
+}
+
+buildBoard();
+buildTray();
+showFace(1);
+</script>
+</body>
+</html>
